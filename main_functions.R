@@ -103,9 +103,13 @@ HO_mom <- function(x0, gt, k = NULL, Alpha = 1, Beta = 1, Gamma = 1,
     if (!ttutils::isInteger(k)) stop("k must be a non-negative integer.")
     Gt <- Deriv::Deriv(gt, "t", nderiv = k)
   }
+  
+  ## Pre-compute G_t for ALL t in one pass
   G_t_vec <- vapply(t, function(ti) eval(Gt, envir = list(t = ti)), numeric(1))
   G_t_0   <- eval(Gt, envir = list(t = 0))
   if (length(G_t_0) == 0) stop("Evaluation of g(t) at t=0 failed.")
+  
+  ## Separate t=0 and t>0
   idx_pos          <- t > 0
   result           <- numeric(length(t))
   result[!idx_pos] <- x0^p
@@ -117,15 +121,18 @@ HO_mom <- function(x0, gt, k = NULL, Alpha = 1, Beta = 1, Gamma = 1,
   if (ttutils::isInteger(p)) {
     Herm_vec <- sapply(B_vec, function(b) EQL::hermite(x = b, n = p, prob = FALSE))
   } else {
-    B2_vec <- B_vec^2                             
-    c1     <- 2^p * sqrt(pi) / gamma(0.5 - 0.5*p)
-    c2     <- 2^(p+1) * sqrt(pi) / gamma(-0.5*p)
+    B2_vec <- Re(B_vec^2)
+    ## Pre-compute p-dependent constants ONCE
+    c1 <- 2^p * sqrt(pi) / gamma(0.5 - 0.5*p)
+    c2 <- 2^(p+1) * sqrt(pi) / gamma(-0.5*p)
+    
     Herm_vec <- vapply(seq_along(t_p), function(i) {
       M1 <- gsl::hyperg_1F1(-0.5*p,       0.5, B2_vec[i])
       M2 <- gsl::hyperg_1F1(0.5 - 0.5*p,  1.5, B2_vec[i])
       c1 * M1 - c2 * B_vec[i] * M2
-    }, numeric(1))
+    }, complex(1))
   }
+  
   result[idx_pos] <- Re(A_vec * Herm_vec)
   return(if (is_single_t) result else invisible(result))
 }
@@ -198,7 +205,6 @@ WFE_theor <- function(x0, gt, k = NULL, Alpha = 1, Beta = 1,
     result[["cor3"]] <- HS_vec * Ep_vec +
       (p * (p - 1) / 2) * s2_vec * Ep_2_vec
   }
-  
   return(invisible(result))
 }
 
@@ -264,8 +270,7 @@ WFE_emp <- function(X = NULL, x0, gt, k = NULL, Alpha = 1, Beta = 1,
     }, numeric(1))
     
     if (any(is.na(WFE_t)))
-      WFE_t <- zoo::na.approx(WFE_t, na.rm = FALSE)
-    
+      WFE_t <- zoo::na.approx(WFE_t, na.rm = FALSE)   
   } else { 
     WFE_t <- vapply(temps_pos, function(ti) {
       mu_i  <- mu_X(ti)
@@ -275,7 +280,6 @@ WFE_emp <- function(X = NULL, x0, gt, k = NULL, Alpha = 1, Beta = 1,
       p_hat <- pmax(p_hat, .Machine$double.eps)
       mean(x_i^p * (-log(p_hat)))
     }, numeric(1))
-  }
-  
+  } 
   return(invisible(WFE_t))
 }
