@@ -36,7 +36,7 @@ cat(sprintf("--- Model FSDE ---\ndX(t) = [ %s ] dt + [ %s ] dW(t)^H\n\n",
 
 T    <- 10
 N    <- 1000
-M    <- 1000
+M    <- 100000
 ncpu <- 12
 bw   <- "nrd0"
 
